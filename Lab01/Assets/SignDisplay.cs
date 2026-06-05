@@ -2,9 +2,9 @@ using UnityEngine;
 using TMPro;
 
 /// <summary>
-/// Shows a floating world-space text above the sign. The label billboards toward
-/// the camera and (by default) appears only while the player is near the sign.
-/// No manual UI setup needed - the label is created at runtime.
+/// Shows a floating world-space text above the sign. The label is an independent
+/// object (so the sign's scale does not shrink the text), billboards toward the
+/// camera, and by default is always visible. No manual UI setup needed.
 /// </summary>
 public class SignDisplay : MonoBehaviour
 {
@@ -13,10 +13,10 @@ public class SignDisplay : MonoBehaviour
 
     [Header("Label")]
     [SerializeField] private float height = 1.6f;
-    [SerializeField] private float fontSize = 4f;
+    [SerializeField] private float fontSize = 6f;
     [SerializeField] private Color textColor = Color.white;
     [Tooltip("If on, the text is always visible. If off, it shows only when the player is near.")]
-    [SerializeField] private bool alwaysVisible = false;
+    [SerializeField] private bool alwaysVisible = true;
 
     private TextMeshPro label;
     private Transform labelTransform;
@@ -24,33 +24,44 @@ public class SignDisplay : MonoBehaviour
     void Start()
     {
         CreateLabel();
-        if (label != null)
-            label.gameObject.SetActive(alwaysVisible);
     }
 
     private void CreateLabel()
     {
-        GameObject go = new GameObject("SignLabel");
-        labelTransform = go.transform;
-        labelTransform.SetParent(transform, false);
-        labelTransform.localPosition = Vector3.up * height;
+        GameObject go = new GameObject("SignLabel_" + name);
 
+        // AddComponent<TextMeshPro> swaps the Transform for a RectTransform,
+        // so the transform reference must be fetched AFTER this call.
         label = go.AddComponent<TextMeshPro>();
+        labelTransform = go.transform;
+        labelTransform.position = transform.position + Vector3.up * height;
+
         label.text = message;
         label.fontSize = fontSize;
         label.color = textColor;
         label.alignment = TextAlignmentOptions.Center;
-        label.rectTransform.sizeDelta = new Vector2(5f, 2f);
+        label.enableWordWrapping = true;
+        label.rectTransform.sizeDelta = new Vector2(6f, 2f);
+
+        // Dark outline so the text is readable against any background.
+        label.outlineWidth = 0.2f;
+        label.outlineColor = Color.black;
+
+        label.gameObject.SetActive(alwaysVisible);
+
+        Debug.Log($"[SignDisplay] '{name}': label created, message=\"{message}\", " +
+                  $"pos={labelTransform.position}, alwaysVisible={alwaysVisible}", this);
     }
 
     void LateUpdate()
     {
         if (label == null || !label.gameObject.activeSelf) return;
-        if (Camera.main == null) return;
 
-        // Billboard: always face the camera.
-        labelTransform.rotation = Quaternion.LookRotation(
-            labelTransform.position - Camera.main.transform.position);
+        labelTransform.position = transform.position + Vector3.up * height;
+
+        if (Camera.main != null)
+            labelTransform.rotation = Quaternion.LookRotation(
+                labelTransform.position - Camera.main.transform.position);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -65,5 +76,10 @@ public class SignDisplay : MonoBehaviour
         if (alwaysVisible) return;
         if (other.GetComponentInParent<CharacterController>() == null) return;
         if (label != null) label.gameObject.SetActive(false);
+    }
+
+    private void OnDestroy()
+    {
+        if (label != null) Destroy(label.gameObject);
     }
 }

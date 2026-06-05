@@ -81,6 +81,7 @@ public static class Quest3Setup
         {
             SerializedObject so = new SerializedObject(signs[i]);
             so.FindProperty("message").stringValue = SignTexts[i % SignTexts.Length];
+            so.FindProperty("alwaysVisible").boolValue = true;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
