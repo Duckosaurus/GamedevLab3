@@ -6,6 +6,14 @@ public class MovingPlatform : MonoBehaviour
     [SerializeField] private Vector3 start;
     [SerializeField] private Vector3 end;
 
+    [Header("Damage")]
+    [Tooltip("If enabled, standing on this platform hurts the player.")]
+    [SerializeField] private bool dealsDamage = false;
+    [SerializeField] private float damage = 10f;
+
+    public bool DealsDamage => dealsDamage;
+    public float DamageAmount => damage;
+
     private Vector3 lastPosition;
 
     void FixedUpdate()

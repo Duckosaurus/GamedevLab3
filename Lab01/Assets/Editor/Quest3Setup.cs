@@ -18,6 +18,104 @@ public static class Quest3Setup
     private const string SawPath = "Assets/Prefabs/World/saw.prefab";
     private const string SignPath = "Assets/Prefabs/World/sign.prefab";
 
+    [MenuItem("Quest3/Bind Third-Person Camera (Mouse)")]
+    public static void BindCamera()
+    {
+        Camera cam = Camera.main;
+        if (cam == null)
+        {
+            EditorUtility.DisplayDialog("Quest 3", "No Main Camera found in the scene.", "OK");
+            return;
+        }
+
+        PlayerMovement playerMove = Object.FindFirstObjectByType<PlayerMovement>();
+        if (playerMove == null)
+        {
+            EditorUtility.DisplayDialog("Quest 3", "No player (PlayerMovement) found in the scene.", "OK");
+            return;
+        }
+        Transform player = playerMove.transform;
+
+        // Remove the simple follow component if it was added earlier.
+        CameraFollow oldFollow = cam.GetComponent<CameraFollow>();
+        if (oldFollow != null)
+            Undo.DestroyObjectImmediate(oldFollow);
+
+        ThirdPersonCameraController tpc = cam.GetComponent<ThirdPersonCameraController>();
+        if (tpc == null)
+            tpc = Undo.AddComponent<ThirdPersonCameraController>(cam.gameObject);
+
+        SerializedObject so = new SerializedObject(tpc);
+        so.FindProperty("target").objectReferenceValue = player;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("Quest 3",
+            "Third-person mouse camera bound to the player (behind/above). Press Play and move the mouse.", "OK");
+    }
+
+    private static readonly string[] SignTexts =
+    {
+        "Vorsicht, Saegen voraus!",
+        "Warum springt das Huhn? Damit DU nicht stehen bleibst!",
+        "Tipp: Spring von oben auf Gegner!",
+        "Nicht runterfallen - sonst war's das!",
+        "Das Juwel wartet am Ende auf dich.",
+        "Bewegende Plattformen koennen wehtun!",
+        "Mage-Regel Nr.1: Immer in Bewegung bleiben.",
+        "Fast geschafft - oder doch nicht?",
+    };
+
+    [MenuItem("Quest3/Fill Sign Texts")]
+    public static void FillSignTexts()
+    {
+        SignDisplay[] signs = Object.FindObjectsByType<SignDisplay>(FindObjectsSortMode.InstanceID);
+        if (signs.Length == 0)
+        {
+            EditorUtility.DisplayDialog("Quest 3",
+                "No signs with a SignDisplay component were found. Place sign prefabs first.", "OK");
+            return;
+        }
+
+        for (int i = 0; i < signs.Length; i++)
+        {
+            SerializedObject so = new SerializedObject(signs[i]);
+            so.FindProperty("message").stringValue = SignTexts[i % SignTexts.Length];
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("Quest 3",
+            $"Assigned sayings to {signs.Length} sign(s). Walk up to a sign in Play mode to read it.", "OK");
+    }
+
+    [MenuItem("Quest3/Add Damage To Enemies")]
+    public static void AddDamageToEnemies()
+    {
+        EnemyPatrol[] enemies = Object.FindObjectsByType<EnemyPatrol>(FindObjectsSortMode.None);
+        if (enemies.Length == 0)
+        {
+            EditorUtility.DisplayDialog("Quest 3",
+                "No enemies with an EnemyPatrol component were found in the scene.", "OK");
+            return;
+        }
+
+        int added = 0;
+        foreach (EnemyPatrol enemy in enemies)
+        {
+            if (enemy.GetComponent<EnemyDamage>() == null)
+            {
+                Undo.AddComponent<EnemyDamage>(enemy.gameObject);
+                added++;
+            }
+        }
+
+        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        EditorUtility.DisplayDialog("Quest 3",
+            $"Found {enemies.Length} enemy/enemies. Added EnemyDamage to {added} of them.\n\n" +
+            "Note: the level needs at least 2 creatures for full marks.", "OK");
+    }
+
     [MenuItem("Quest3/Fix Prefab Colliders")]
     public static void FixPrefabColliders()
     {

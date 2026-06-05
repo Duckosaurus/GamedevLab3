@@ -6,12 +6,18 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 playerVelocity;
     private Vector3 platformVelocity;
     private bool groundedPlayer;
-    private bool wasGroundedLastFrame;
+    private float airborneTime;
 
     [SerializeField] private float playerSpeed = 5.0f;
     [SerializeField] private float jumpHeight = 1.5f;
     [SerializeField] private float gravityValue = -9.81f;
     [SerializeField] private float stompBounceHeight = 2.0f;
+    [SerializeField] private float rotationSpeed = 12f;
+    [Tooltip("Minimum airtime (s) before a touchdown counts as a landing. Prevents land-sound spam on moving platforms.")]
+    [SerializeField] private float landThreshold = 0.12f;
+    [SerializeField] private Transform cameraTransform;
+
+    private PlayerHealth playerHealth;
 
     public bool IsGrounded => groundedPlayer;
     public bool IsMoving { get; private set; }
@@ -22,6 +28,9 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        playerHealth = GetComponent<PlayerHealth>();
+        if (cameraTransform == null && Camera.main != null)
+            cameraTransform = Camera.main.transform;
     }
 
     void Update()
@@ -34,23 +43,57 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        wasGroundedLastFrame = groundedPlayer;
-        groundedPlayer = controller.isGrounded;
-
         JumpedThisFrame = false;
         LandedThisFrame = false;
 
-        if (groundedPlayer && !wasGroundedLastFrame)
-            LandedThisFrame = true;
+        // isGrounded flickers on moving platforms, so only count a landing
+        // after the player has actually been airborne for a short moment.
+        bool rawGrounded = controller.isGrounded;
+        if (rawGrounded)
+        {
+            if (airborneTime > landThreshold)
+                LandedThisFrame = true;
+            airborneTime = 0f;
+        }
+        else
+        {
+            airborneTime += Time.deltaTime;
+        }
+        groundedPlayer = rawGrounded;
 
         if (groundedPlayer && playerVelocity.y < 0)
         {
             playerVelocity.y = -2f;
         }
 
-        Vector3 move = new Vector3(-Input.GetAxis("Horizontal"), 0, -Input.GetAxis("Vertical"));
+        float h = Input.GetAxis("Horizontal");
+        float v = Input.GetAxis("Vertical");
+
+        // Camera-relative movement.
+        Vector3 move;
+        if (cameraTransform != null)
+        {
+            Vector3 camForward = cameraTransform.forward;
+            Vector3 camRight = cameraTransform.right;
+            camForward.y = 0f; camRight.y = 0f;
+            camForward.Normalize(); camRight.Normalize();
+            move = camForward * v + camRight * h;
+        }
+        else
+        {
+            move = new Vector3(h, 0, v);
+        }
+
+        if (move.sqrMagnitude > 1f) move.Normalize();
         IsMoving = move.sqrMagnitude > 0.01f;
         controller.Move(move * Time.deltaTime * playerSpeed);
+
+        // Rotate the player to face the movement direction (turns with the camera).
+        if (IsMoving)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(move);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+        }
 
         if (Input.GetButtonDown("Jump") && groundedPlayer)
         {
@@ -86,6 +129,10 @@ public class PlayerMovement : MonoBehaviour
             if (platform != null)
             {
                 platformVelocity = platform.GetVelocity();
+
+                if (platform.DealsDamage && groundedPlayer && playerHealth != null)
+                    playerHealth.TakeDamage(platform.DamageAmount);
+
                 return;
             }
         }
