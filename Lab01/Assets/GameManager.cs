@@ -62,6 +62,7 @@ public class GameManager : MonoBehaviour
         if (isDead) return;
 
         currentHealth = Mathf.Max(0, currentHealth - amount);
+        Debug.Log($"[GameManager] TakeDamage({amount}) -> health = {currentHealth}");
         UpdateHealthUI();
 
         if (currentHealth <= 0)

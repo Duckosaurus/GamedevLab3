@@ -18,6 +18,17 @@ public static class Quest3Setup
     private const string SawPath = "Assets/Prefabs/World/saw.prefab";
     private const string SignPath = "Assets/Prefabs/World/sign.prefab";
 
+    [MenuItem("Quest3/Fix Prefab Colliders")]
+    public static void FixPrefabColliders()
+    {
+        ConfigurePrefab(JewelPath, typeof(JewelPickup));
+        ConfigurePrefab(SawPath, typeof(SawTrap));
+        ConfigurePrefab(SignPath, typeof(SignDisplay));
+        AssetDatabase.SaveAssets();
+        EditorUtility.DisplayDialog("Quest 3",
+            "Prefab colliders fixed (convex + trigger). Jewel, saw and sign now fire OnTriggerEnter.", "OK");
+    }
+
     [MenuItem("Quest3/Setup Scene (UI + Prefabs)")]
     public static void SetupScene()
     {
@@ -98,9 +109,25 @@ public static class Quest3Setup
         Collider col = contents.GetComponentInChildren<Collider>();
         if (col == null)
         {
+            // No collider at all -> add a trigger box sized to the renderer bounds.
             BoxCollider box = contents.AddComponent<BoxCollider>();
             box.isTrigger = true;
-            box.size = Vector3.one;
+            Renderer r = contents.GetComponentInChildren<Renderer>();
+            if (r != null)
+            {
+                box.center = contents.transform.InverseTransformPoint(r.bounds.center);
+                box.size = r.bounds.size;
+            }
+            else
+            {
+                box.size = Vector3.one;
+            }
+        }
+        else if (col is MeshCollider meshCol)
+        {
+            // A non-convex MeshCollider can NOT be a trigger, so make it convex first.
+            meshCol.convex = true;
+            meshCol.isTrigger = true;
         }
         else
         {
